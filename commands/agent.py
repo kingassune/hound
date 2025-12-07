@@ -653,8 +653,14 @@ class AgentRunner:
         """Setup audit.log file logging for headless mode."""
         import logging
         try:
-            # Create a file handler for audit.log in current directory
-            log_file = Path.cwd() / "audit.log"
+            # Create unique log file name with project ID and timestamp to avoid conflicts
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            # Sanitize project_id for filename (replace problematic characters)
+            safe_project_id = str(self.project_id).replace('/', '_').replace('\\', '_')[:50]
+            log_filename = f"audit_{safe_project_id}_{timestamp}.log"
+            log_file = Path.cwd() / log_filename
+            
             self._audit_log_handler = logging.FileHandler(log_file, mode='w')
             self._audit_log_handler.setLevel(logging.INFO)
             
@@ -665,10 +671,15 @@ class AgentRunner:
             )
             self._audit_log_handler.setFormatter(formatter)
             
-            # Create a logger for audit events
-            self.audit_logger = logging.getLogger('hound.audit')
+            # Create a unique logger instance per AgentRunner to avoid handler accumulation
+            logger_name = f'hound.audit.{safe_project_id}.{timestamp}'
+            self.audit_logger = logging.getLogger(logger_name)
             self.audit_logger.setLevel(logging.INFO)
+            # Clear any existing handlers to prevent accumulation
+            self.audit_logger.handlers.clear()
             self.audit_logger.addHandler(self._audit_log_handler)
+            # Prevent propagation to avoid duplicate logs
+            self.audit_logger.propagate = False
             
             # Log initial message
             self.audit_logger.info(f"Starting headless audit for project: {self.project_id}")
@@ -1909,8 +1920,12 @@ class AgentRunner:
                         self.audit_logger.info(f"Iteration {it} - Hypothesis: {msg}")
                     elif status in {'analyzing', 'executing'}:
                         self.audit_logger.info(f"Iteration {it} - {status.capitalize()}: {msg}")
-                except Exception:
-                    pass
+                except (OSError, IOError) as e:
+                    # Log I/O errors but don't crash the audit
+                    console.print(f"[yellow]Warning: Failed to write to audit log: {e}[/yellow]")
+                except Exception as e:
+                    # Log unexpected errors but don't crash the audit
+                    console.print(f"[yellow]Warning: Unexpected error in audit logging: {e}[/yellow]")
             
             # Telemetry publish (best-effort)
             try:
@@ -2416,8 +2431,8 @@ class AgentRunner:
                         priority = getattr(inv, 'priority', 0)
                         reasoning = getattr(inv, 'reasoning', '')
                         self.audit_logger.info(f"  Priority: {priority}, Reasoning: {reasoning}")
-                    except Exception:
-                        pass
+                    except (OSError, IOError) as e:
+                        console.print(f"[yellow]Warning: Failed to write to audit log: {e}[/yellow]")
                 
                 # Snapshot coverage at the start of the investigation
                 try:
@@ -2862,8 +2877,8 @@ class AgentRunner:
                             f"Investigation completed: {inv.goal} - "
                             f"{iterations_done} iterations, {hyp_total} hypotheses ({hyp_confirmed} confirmed)"
                         )
-                    except Exception:
-                        pass
+                    except (OSError, IOError) as e:
+                        console.print(f"[yellow]Warning: Failed to write to audit log: {e}[/yellow]")
                 
                 # Show updated coverage after completion
                 try:
@@ -2961,8 +2976,8 @@ class AgentRunner:
                     f"Hypotheses: {hyp_stats['total']} total ({hyp_stats['confirmed']} confirmed, {hyp_stats['rejected']} rejected), "
                     f"Coverage: {coverage_stats['nodes']['percent']:.1f}% nodes, {coverage_stats['cards']['percent']:.1f}% cards"
                 )
-            except Exception:
-                pass
+            except (OSError, IOError) as e:
+                console.print(f"[yellow]Warning: Failed to write final summary to audit log: {e}[/yellow]")
 
         # Finalize debug log if enabled
         try:

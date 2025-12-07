@@ -2,6 +2,7 @@
 Tests for headless mode functionality.
 """
 
+import glob
 import logging
 import os
 import tempfile
@@ -12,6 +13,13 @@ import pytest
 import yaml
 
 from commands.agent import AgentRunner
+
+
+def find_audit_log(tmpdir, project_id="test_project"):
+    """Helper function to find the timestamped audit log file."""
+    log_files = glob.glob(str(Path(tmpdir) / f"audit_{project_id}_*.log"))
+    assert len(log_files) > 0, f"No audit log found in {tmpdir}"
+    return Path(log_files[0])
 
 
 class TestHeadlessMode:
@@ -62,8 +70,8 @@ class TestHeadlessMode:
                 assert hasattr(runner, '_audit_log_handler')
                 assert runner._audit_log_handler is not None
                 
-                # Verify audit.log file exists
-                log_file = Path(tmpdir) / "audit.log"
+                # Verify audit log file exists (with timestamp in name)
+                log_file = find_audit_log(tmpdir)
                 assert log_file.exists()
                 
                 # Test writing to the log
@@ -122,7 +130,7 @@ class TestHeadlessMode:
                     )
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify decision was logged
@@ -168,7 +176,7 @@ class TestHeadlessMode:
                     )
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify result was logged
@@ -210,7 +218,7 @@ class TestHeadlessMode:
                     )
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify hypothesis was logged
@@ -313,7 +321,7 @@ class TestHeadlessMode:
                     )
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify lifecycle events were logged
@@ -353,7 +361,7 @@ class TestHeadlessMode:
                     )
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify summary was logged
@@ -369,7 +377,7 @@ class TestHeadlessMode:
                 os.chdir(original_cwd)
     
     def test_log_file_location(self):
-        """Test that audit.log is created in the current working directory."""
+        """Test that audit log is created in the current working directory with timestamp."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = os.getcwd()
             try:
@@ -382,10 +390,13 @@ class TestHeadlessMode:
                 )
                 runner._setup_audit_logging()
                 
-                # Verify log file is in current directory
-                log_file = Path.cwd() / "audit.log"
+                # Verify log file is in current directory with timestamped name
+                log_file = find_audit_log(tmpdir)
                 assert log_file.exists()
                 assert log_file.parent == Path(tmpdir)
+                # Verify filename format: audit_{project}_{timestamp}.log
+                assert log_file.name.startswith("audit_test_project_")
+                assert log_file.name.endswith(".log")
                 
                 # Cleanup
                 runner._audit_log_handler.close()
@@ -411,7 +422,7 @@ class TestHeadlessMode:
                     runner.audit_logger.info("Test message")
                 
                 # Read log file
-                log_file = Path(tmpdir) / "audit.log"
+                log_file = find_audit_log(tmpdir)
                 log_content = log_file.read_text()
                 
                 # Verify format includes timestamp and level
