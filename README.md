@@ -53,7 +53,17 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Set up your OpenAI API key and optional base URL:
+Set up your API keys for the LLM provider you want to use:
+
+**Using DeepSeek (recommended for cost efficiency):**
+
+```bash
+export DEEPSEEK_API_KEY=your_key_here
+# Optional: override the base URL (defaults to https://api.deepseek.com)
+export DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+**Using OpenAI:**
 
 ```bash
 export OPENAI_API_KEY=your_key_here
