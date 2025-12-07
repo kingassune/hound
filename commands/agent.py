@@ -655,9 +655,15 @@ class AgentRunner:
         try:
             # Create unique log file name with project ID and timestamp to avoid conflicts
             from datetime import datetime
+            import hashlib
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Sanitize project_id for filename (replace problematic characters)
-            safe_project_id = str(self.project_id).replace('/', '_').replace('\\', '_')[:50]
+            safe_project_id = str(self.project_id).replace('/', '_').replace('\\', '_')
+            # For long project IDs, truncate and add hash to ensure uniqueness
+            if len(safe_project_id) > 50:
+                # Use first 40 chars + hash of full ID for uniqueness
+                project_hash = hashlib.md5(safe_project_id.encode()).hexdigest()[:8]
+                safe_project_id = f"{safe_project_id[:40]}_{project_hash}"
             log_filename = f"audit_{safe_project_id}_{timestamp}.log"
             log_file = Path.cwd() / log_filename
             
@@ -683,7 +689,12 @@ class AgentRunner:
             
             # Log initial message
             self.audit_logger.info(f"Starting headless audit for project: {self.project_id}")
-            console.print(f"[cyan]Audit log:[/cyan] {log_file}")
+            # In headless mode, minimize console output (log to file instead)
+            if not self.headless:
+                console.print(f"[cyan]Audit log:[/cyan] {log_file}")
+            else:
+                # Just print the log file location once for reference
+                print(f"Audit log: {log_file}")
         except Exception as e:
             console.print(f"[yellow]Warning: Could not setup audit logging: {e}[/yellow]")
             self.audit_logger = None
@@ -1908,7 +1919,7 @@ class AgentRunner:
             if self.headless and hasattr(self, 'audit_logger') and self.audit_logger:
                 try:
                     if status == 'decision':
-                        act = info.get('action', '-')
+                        act = info.get('action', 'unknown')
                         reasoning = info.get('reasoning', '')
                         self.audit_logger.info(f"Iteration {it} - Decision: action={act}, reasoning={reasoning}")
                     elif status == 'result':
