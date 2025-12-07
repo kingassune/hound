@@ -646,8 +646,9 @@ class AgentRunner:
         self._node_to_graph_map_cache: dict[str, str] | None = None
         # Track current audit phase (Early/Mid/Late) for display and planning hints
         self._current_phase: str | None = None
-        # Audit log file handler for headless mode
+        # Audit log file handler and logger for headless mode
         self._audit_log_handler = None
+        self.audit_logger = None
     
     def _setup_audit_logging(self):
         """Setup audit.log file logging for headless mode."""
