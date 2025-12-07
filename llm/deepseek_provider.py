@@ -49,7 +49,9 @@ class DeepSeekProvider(BaseLLMProvider):
             raise ValueError(f"API key not found in environment variable: {api_key_env}")
         
         # Get base URL from environment variable first, then config, then default
-        base_url = os.environ.get("DEEPSEEK_BASE_URL") or config.get("deepseek", {}).get("base_url", "https://api.deepseek.com")
+        base_url = os.environ.get("DEEPSEEK_BASE_URL")
+        if not base_url:
+            base_url = config.get("deepseek", {}).get("base_url", "https://api.deepseek.com")
         
         self.client = OpenAI(
             api_key=api_key,

@@ -161,7 +161,7 @@ class TestDeepSeekProvider(unittest.TestCase):
                     model_name="deepseek-chat"
                 )
                 
-                # DeepSeek doesn't support explicit thinking mode
+                # DeepSeek supports complex reasoning but not explicit thinking mode
                 self.assertFalse(provider.supports_thinking)
 
 

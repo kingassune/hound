@@ -45,6 +45,8 @@ models:
     thinking_budget: -1
     
   # Scout/agent model for exploration
+  # Using DeepSeek for ~90% cost savings vs GPT-4
+  # Alternative: provider: openai, model: gpt-5-mini
   scout:
     provider: deepseek
     model: deepseek-chat
@@ -53,6 +55,8 @@ models:
   
   # Strategic thinking model
   # For planning and reasoning about security issues
+  # Using DeepSeek for ~90% cost savings vs GPT-4
+  # Alternative: provider: openai, model: gpt-5
   strategist:
     provider: deepseek
     model: deepseek-chat
