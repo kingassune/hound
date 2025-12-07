@@ -618,7 +618,8 @@ class AgentRunner:
     def __init__(self, project_id: str, config_path: Path | None = None, 
                  iterations: int | None = None, time_limit_minutes: int | None = None,
                  debug: bool = False, platform: str | None = None, model: str | None = None,
-                 session: str | None = None, new_session: bool = False, mode: str | None = None):
+                 session: str | None = None, new_session: bool = False, mode: str | None = None,
+                 headless: bool = False):
         self.project_id = project_id
         self.config_path = config_path
         self.max_iterations = iterations
@@ -627,6 +628,7 @@ class AgentRunner:
         self.debug = debug
         self.platform = platform
         self.model = model
+        self.headless = headless  # Headless mode flag
         self.agent = None
         self.start_time = None
         self.completed_investigations = []  # Track completed investigation goals
@@ -644,9 +646,43 @@ class AgentRunner:
         self._node_to_graph_map_cache: dict[str, str] | None = None
         # Track current audit phase (Early/Mid/Late) for display and planning hints
         self._current_phase: str | None = None
+        # Audit log file handler for headless mode
+        self._audit_log_handler = None
+    
+    def _setup_audit_logging(self):
+        """Setup audit.log file logging for headless mode."""
+        import logging
+        try:
+            # Create a file handler for audit.log in current directory
+            log_file = Path.cwd() / "audit.log"
+            self._audit_log_handler = logging.FileHandler(log_file, mode='w')
+            self._audit_log_handler.setLevel(logging.INFO)
+            
+            # Create a formatter for structured logging
+            formatter = logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            self._audit_log_handler.setFormatter(formatter)
+            
+            # Create a logger for audit events
+            self.audit_logger = logging.getLogger('hound.audit')
+            self.audit_logger.setLevel(logging.INFO)
+            self.audit_logger.addHandler(self._audit_log_handler)
+            
+            # Log initial message
+            self.audit_logger.info(f"Starting headless audit for project: {self.project_id}")
+            console.print(f"[cyan]Audit log:[/cyan] {log_file}")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not setup audit logging: {e}[/yellow]")
+            self.audit_logger = None
         
     def initialize(self):
         """Initialize the agent."""
+        # Setup audit logging if in headless mode
+        if self.headless:
+            self._setup_audit_logging()
+        
         # First check if project_id is actually a path to a project directory
         if '/' in self.project_id or Path(self.project_id).exists():
             # It's a path to the project output
@@ -1856,6 +1892,26 @@ class AgentRunner:
             status = info.get('status', '')
             msg = info.get('message', '')
             it = info.get('iteration', 0)
+            
+            # Log to audit.log in headless mode
+            if self.headless and hasattr(self, 'audit_logger') and self.audit_logger:
+                try:
+                    if status == 'decision':
+                        act = info.get('action', '-')
+                        reasoning = info.get('reasoning', '')
+                        self.audit_logger.info(f"Iteration {it} - Decision: action={act}, reasoning={reasoning}")
+                    elif status == 'result':
+                        act = info.get('action', '')
+                        result = info.get('result', {})
+                        result_summary = result.get('summary', '') if isinstance(result, dict) else str(result)
+                        self.audit_logger.info(f"Iteration {it} - Result: action={act}, result={result_summary}")
+                    elif status == 'hypothesis_formed':
+                        self.audit_logger.info(f"Iteration {it} - Hypothesis: {msg}")
+                    elif status in {'analyzing', 'executing'}:
+                        self.audit_logger.info(f"Iteration {it} - {status.capitalize()}: {msg}")
+                except Exception:
+                    pass
+            
             # Telemetry publish (best-effort)
             try:
                 pub = getattr(self, '_telemetry_publish', None)
@@ -2352,6 +2408,17 @@ class AgentRunner:
                 # Log current investigation with updated coverage
                 console.print(f"\n[bold magenta]═══ Starting Investigation {idx+1}/{len(items)} ═══[/bold magenta]")
                 console.print(f"[bold]Goal:[/bold] {inv.goal}")
+                
+                # Log to audit.log in headless mode
+                if self.headless and hasattr(self, 'audit_logger') and self.audit_logger:
+                    try:
+                        self.audit_logger.info(f"Starting investigation {idx+1}/{len(items)}: {inv.goal}")
+                        priority = getattr(inv, 'priority', 0)
+                        reasoning = getattr(inv, 'reasoning', '')
+                        self.audit_logger.info(f"  Priority: {priority}, Reasoning: {reasoning}")
+                    except Exception:
+                        pass
+                
                 # Snapshot coverage at the start of the investigation
                 try:
                     if self.session_tracker:
@@ -2783,6 +2850,21 @@ class AgentRunner:
                     raise
                 # Show completion
                 console.print(f"\n[bold green]✓ Investigation Completed:[/bold green] {inv.goal}")
+                
+                # Log completion to audit.log in headless mode
+                if self.headless and hasattr(self, 'audit_logger') and self.audit_logger:
+                    try:
+                        iterations_done = report.get('iterations_completed', 0) if report else 0
+                        hyps = report.get('hypotheses', {}) if report else {}
+                        hyp_total = hyps.get('total', 0)
+                        hyp_confirmed = hyps.get('confirmed', 0)
+                        self.audit_logger.info(
+                            f"Investigation completed: {inv.goal} - "
+                            f"{iterations_done} iterations, {hyp_total} hypotheses ({hyp_confirmed} confirmed)"
+                        )
+                    except Exception:
+                        pass
+                
                 # Show updated coverage after completion
                 try:
                     if self.session_tracker:
@@ -2867,6 +2949,20 @@ class AgentRunner:
         console.print(f"  Cards analyzed: {coverage_stats['cards']['visited']}/{coverage_stats['cards']['total']} ([cyan]{coverage_stats['cards']['percent']:.1f}%[/cyan])")
         
         console.print(f"\n[green]Session details saved to:[/green] sessions/{self.session_id}.json")
+        
+        # Log final summary to audit.log in headless mode
+        if self.headless and hasattr(self, 'audit_logger') and self.audit_logger:
+            try:
+                hyp_stats = self._hypothesis_stats()
+                self.audit_logger.info(
+                    f"Audit completed with status: {final_status} - "
+                    f"Planning batches: {planned_round}, "
+                    f"Investigations: {len(results)}, "
+                    f"Hypotheses: {hyp_stats['total']} total ({hyp_stats['confirmed']} confirmed, {hyp_stats['rejected']} rejected), "
+                    f"Coverage: {coverage_stats['nodes']['percent']:.1f}% nodes, {coverage_stats['cards']['percent']:.1f}% cards"
+                )
+            except Exception:
+                pass
 
         # Finalize debug log if enabled
         try:
@@ -2922,16 +3018,17 @@ class AgentRunner:
 @click.option('--telemetry', is_flag=True, help='Expose local (localhost) telemetry SSE/control and register instance')
 @click.option('--strategist-two-pass', is_flag=True, help='Enable strategist two-pass self-critique to reduce false positives')
 @click.option('--mission', default=None, help='Overarching mission for the audit (always visible to the Strategist)')
+@click.option('--headless', is_flag=True, help='Run in headless mode for automated service (no UI/Chatbot, auto-approve plans, logs to audit.log)')
 def agent(project_id: str, iterations: int | None, plan_n: int, time_limit: int | None, 
           config: str | None, debug: bool, mode: str | None, platform: str | None, model: str | None,
           strategist_platform: str | None, strategist_model: str | None,
           session: str | None, new_session: bool, session_private_hypotheses: bool,
-          telemetry: bool, strategist_two_pass: bool, mission: str | None):
+          telemetry: bool, strategist_two_pass: bool, mission: str | None, headless: bool = False):
     """Run autonomous security analysis agent."""
     
     config_path = Path(config) if config else None
     
-    runner = AgentRunner(project_id, config_path, iterations, time_limit, debug, platform, model, session=session, new_session=new_session, mode=mode)
+    runner = AgentRunner(project_id, config_path, iterations, time_limit, debug, platform, model, session=session, new_session=new_session, mode=mode, headless=headless)
     try:
         runner.mission = mission
     except Exception:
@@ -2942,9 +3039,10 @@ def agent(project_id: str, iterations: int | None, plan_n: int, time_limit: int 
         raise click.Exit(1)
     
     # Optional telemetry: local-only HTTP SSE/control + instance registry
+    # Disable telemetry in headless mode
     tele = None
     try:
-        if telemetry:
+        if telemetry and not headless:
             try:
                 from telemetry import TelemetryServer
                 # Project dir used after initialize
@@ -3017,6 +3115,9 @@ def agent(project_id: str, iterations: int | None, plan_n: int, time_limit: int 
             runner.finalize_tracking('interrupted')
         except Exception:
             pass
+        # In headless mode, exit with non-zero code
+        if headless:
+            raise click.Exit(130)  # Standard exit code for SIGINT
     except Exception as e:
         console.print(f"\n[red]Error:[/red] {e}")
         # Try to save partial results
@@ -3024,6 +3125,9 @@ def agent(project_id: str, iterations: int | None, plan_n: int, time_limit: int 
             runner.finalize_tracking('failed')
         except Exception:
             pass
+        # In headless mode, exit with non-zero code for critical failures
+        if headless:
+            raise click.Exit(1)
         raise
     finally:
         # Ensure telemetry shutdown and registry cleanup
@@ -3032,3 +3136,9 @@ def agent(project_id: str, iterations: int | None, plan_n: int, time_limit: int 
                 tele.stop()
         except Exception:
             pass
+        # Close audit log handler in headless mode
+        if headless and hasattr(runner, '_audit_log_handler') and runner._audit_log_handler:
+            try:
+                runner._audit_log_handler.close()
+            except Exception:
+                pass
