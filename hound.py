@@ -1194,6 +1194,41 @@ def poc_list(
 
 
 @app.command()
+def scan(
+    target: str = typer.Argument(None, help="GitHub URL or local path to scan"),
+    batch: str = typer.Option(None, "--batch", "-b", help="CSV file with repo URLs for batch scanning"),
+    output: str = typer.Option(None, "--output", "-o", help="Output file path"),
+    format: str = typer.Option("json", "--format", "-f", help="Output format: json/html/md/csv"),
+    budget: int = typer.Option(5, "--budget", help="Maximum LLM calls per repo (default: 5)"),
+    model: str = typer.Option(None, "--model", help="Override LLM model (default: gpt-4o-mini)"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output"),
+    no_llm: bool = typer.Option(False, "--no-llm", help="Skip LLM verification (faster, less accurate)"),
+    max_concurrent: int = typer.Option(10, "--max-concurrent", help="Max concurrent scans for batch mode")
+):
+    """Fast preliminary security scan for smart contract repos.
+
+    Performs lightweight static analysis and optional LLM verification
+    to identify potential vulnerabilities in Solidity/Vyper contracts.
+
+    Examples:
+        hound scan https://github.com/uniswap/v4-core
+        hound scan /path/to/contracts --format html --output report.html
+        hound scan --batch repos.csv --output results.csv
+    """
+    from commands.scan import run_scan
+
+    run_scan(
+        target=target,
+        batch=batch,
+        output=output,
+        output_format=format,
+        budget=0 if no_llm else budget,
+        model=model,
+        quiet=quiet,
+    )
+
+
+@app.command()
 def version():
     """Show Hound version."""
     console.print("[bold]Hound[/bold] v2.0.0")
