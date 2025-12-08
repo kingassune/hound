@@ -45,13 +45,15 @@ class TestReportGenerator(unittest.TestCase):
             # Setup mock to return different responses for different calls
             def mock_raw_side_effect(*args, **kwargs):
                 user_prompt = kwargs.get('user', '')
-                if 'executive_summary' in user_prompt or 'system_overview' in user_prompt:
+                system_prompt = kwargs.get('system', '')
+                # Match based on system prompt for more reliable differentiation
+                if 'senior security auditor' in system_prompt and 'PROJECT_NAME' in user_prompt:
                     return ('{"application_name": "Test App", '
                             '"executive_summary": "Executive Summary Here", '
                             '"system_overview": "System Overview Here"}')
                 elif 'Vulnerabilities to describe' in user_prompt:
                     return '{"0": {"description": "Professional description", "affected_components": "Test component"}}'
-                elif 'remediation advice' in user_prompt:
+                elif 'remediation advice' in user_prompt.lower():
                     return '{"0": "Add input validation and implement proper access controls."}'
                 else:
                     return '{}'
@@ -113,7 +115,8 @@ class TestReportGenerator(unittest.TestCase):
             badge_html = rg._generate_badge_section_html('TestProject', 'January 1, 2025', 0)
             self.assertIn('README Badge', badge_html)
             self.assertIn('28a745', badge_html)  # Green color for no issues
-            self.assertIn('Audited by Hound', badge_html)
+            self.assertIn('Audited_by-Hound', badge_html)  # Check for badge URL format
+            self.assertIn('Hound Security Audit', badge_html)  # Check for alt text
             self.assertIn('Copy', badge_html)
             
             # Test with findings

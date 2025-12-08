@@ -4,12 +4,15 @@ Professional security audit report generator.
 
 import json
 import math
+import re
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from llm.unified_client import UnifiedLLMClient
+from utils.json_utils import extract_json_object
 
 
 class ReportGenerator:
@@ -468,7 +471,6 @@ class ReportGenerator:
         # Save prompt/response for CLI debug
         self.last_prompt = prompt
         self.last_response = response
-        from utils.json_utils import extract_json_object
         obj = extract_json_object(response)
         if isinstance(obj, dict) and 'executive_summary' in obj and 'system_overview' in obj:
             return {
@@ -2123,26 +2125,22 @@ External dependencies are limited and clearly defined."""
         """Generate badge section with embeddable HTML snippet for README."""
         # Determine badge color based on findings count
         if findings_count == 0:
-            badge_color = "success"
-            badge_text = "No Issues Found"
             hex_color = "28a745"
         elif findings_count <= 3:
-            badge_color = "warning"
-            badge_text = f"{findings_count} Issues Found"
             hex_color = "ffc107"
         else:
-            badge_color = "critical"
-            badge_text = f"{findings_count} Issues Found"
             hex_color = "dc3545"
         
-        # Create badge SVG URL (using shields.io style)
-        badge_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="180" height="20"><linearGradient id="b" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><mask id="a"><rect width="180" height="20" rx="3" fill="#fff"/></mask><g mask="url(#a)"><path fill="#555" d="M0 0h100v20H0z"/><path fill="#{hex_color}" d="M100 0h80v20H100z"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="50" y="15" fill="#010101" fill-opacity=".3">Audited by Hound</text><text x="50" y="14">Audited by Hound</text><text x="140" y="15" fill="#010101" fill-opacity=".3">{report_date[:7]}</text><text x="140" y="14">{report_date[:7]}</text></g></svg>'
+        # Create URL-safe project name for filenames
+        # Replace spaces and special characters, keep only alphanumeric and underscores
+        safe_project_name = re.sub(r'[^\w\s-]', '', project_name)
+        safe_project_name = re.sub(r'[-\s]+', '_', safe_project_name).strip('_')
         
         # Create embeddable markdown snippet
-        markdown_badge = f'[![Hound Security Audit](https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white)]({project_name.replace(" ", "_")}_security_report.html)'
+        markdown_badge = f'[![Hound Security Audit](https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white)]({safe_project_name}_security_report.html)'
         
         # Create embeddable HTML snippet
-        html_badge = f'<a href="{project_name.replace(" ", "_")}_security_report.html"><img src="https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white" alt="Hound Security Audit" /></a>'
+        html_badge = f'<a href="{self._escape_html(safe_project_name)}_security_report.html"><img src="https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white" alt="Hound Security Audit" /></a>'
         
         return f"""
         <div class="section">
@@ -2360,7 +2358,6 @@ Rules for affected components:
                 system="You are a security expert writing clear vulnerability descriptions. Respond only with valid JSON.",
                 user=prompt
             )
-            from utils.json_utils import extract_json_object
             results = extract_json_object(response)
             
             if isinstance(results, dict):
@@ -2435,7 +2432,6 @@ Rules:
                 system="You are a security expert providing remediation advice. Respond only with valid JSON.",
                 user=prompt
             )
-            from utils.json_utils import extract_json_object
             results = extract_json_object(response)
             
             if isinstance(results, dict):
@@ -2854,7 +2850,6 @@ The audit employed a comprehensive security assessment methodology including:
                 "Constraints:\n- Ensure line numbers correspond to the provided file content.\n- Keep each snippet under 20 lines and maximize signal.\n- If nothing clearly relevant is present, return an empty snippets array."
             )
             response = self.llm.raw(system=system, user=user)
-            from utils.json_utils import extract_json_object
             obj = extract_json_object(response)
             results: list[dict] = []
             if isinstance(obj, dict) and isinstance(obj.get('snippets'), list):
@@ -3262,7 +3257,6 @@ Only include the most relevant 10-20 lines that directly relate to the vulnerabi
                     system="You are a code analysis expert. Return only valid JSON.",
                     user=prompt
                 )
-                from utils.json_utils import extract_json_object
                 result = extract_json_object(response)
                 if result and 'relevant_lines' in result:
                     lines = file_content.split('\n')
