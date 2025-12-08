@@ -835,10 +835,14 @@ and systematic vulnerability assessment across all identified attack surfaces.""
                 }
                 findings.append(finding)
         
-        # Batch generate professional descriptions for all findings
+        # Batch generate professional descriptions and remediation advice for all findings
         if findings:
             self._emit_progress('findings_describe', f'Generating professional descriptions for {len(findings)} findings')
             professional_results = self._batch_generate_vulnerability_descriptions(findings)
+            
+            self._emit_progress('remediation', f'Generating remediation advice for {len(findings)} findings')
+            remediation_results = self._batch_generate_remediation_advice(findings)
+            
             for i, finding in enumerate(findings):
                 result = professional_results.get(i, {})
                 
@@ -849,6 +853,9 @@ and systematic vulnerability assessment across all identified attack surfaces.""
                 # Use LLM-formatted component description or fallback
                 finding['affected_description'] = result.get('affected_components') or \
                     self._describe_affected_components(finding.get('affected', []))
+                
+                # Add remediation advice
+                finding['remediation'] = remediation_results.get(i, 'No specific remediation advice available.')
                 
                 # Extract code samples for this finding
                 self._emit_progress('snippets', f"Selecting code snippets: {finding.get('title','')}"[:80])
@@ -1844,6 +1851,8 @@ External dependencies are limited and clearly defined."""
             {self._format_findings_html(kwargs['findings'])}
         </div>
         
+        {self._generate_badge_section_html(kwargs['project_name'], kwargs['report_date'], len(kwargs['findings']))}
+        
         <div class="footer">
             <p>© {datetime.now().year} Hound Security Team<br>
             Report prepared by: {kwargs.get('report_writer', 'Hound Team')}<br>
@@ -2110,6 +2119,111 @@ External dependencies are limited and clearly defined."""
         </div>
         """
     
+    def _generate_badge_section_html(self, project_name: str, report_date: str, findings_count: int) -> str:
+        """Generate badge section with embeddable HTML snippet for README."""
+        # Determine badge color based on findings count
+        if findings_count == 0:
+            badge_color = "success"
+            badge_text = "No Issues Found"
+            hex_color = "28a745"
+        elif findings_count <= 3:
+            badge_color = "warning"
+            badge_text = f"{findings_count} Issues Found"
+            hex_color = "ffc107"
+        else:
+            badge_color = "critical"
+            badge_text = f"{findings_count} Issues Found"
+            hex_color = "dc3545"
+        
+        # Create badge SVG URL (using shields.io style)
+        badge_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="180" height="20"><linearGradient id="b" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><mask id="a"><rect width="180" height="20" rx="3" fill="#fff"/></mask><g mask="url(#a)"><path fill="#555" d="M0 0h100v20H0z"/><path fill="#{hex_color}" d="M100 0h80v20H100z"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="50" y="15" fill="#010101" fill-opacity=".3">Audited by Hound</text><text x="50" y="14">Audited by Hound</text><text x="140" y="15" fill="#010101" fill-opacity=".3">{report_date[:7]}</text><text x="140" y="14">{report_date[:7]}</text></g></svg>'
+        
+        # Create embeddable markdown snippet
+        markdown_badge = f'[![Hound Security Audit](https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white)]({project_name.replace(" ", "_")}_security_report.html)'
+        
+        # Create embeddable HTML snippet
+        html_badge = f'<a href="{project_name.replace(" ", "_")}_security_report.html"><img src="https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white" alt="Hound Security Audit" /></a>'
+        
+        return f"""
+        <div class="section">
+            <h2>README Badge</h2>
+            <p style="color: #c8d0db; margin-bottom: 20px;">
+                Add this badge to your project's README to showcase your security audit. 
+                Copy the snippet below and paste it into your README.md file.
+            </p>
+            
+            <div style="background: linear-gradient(135deg, rgba(36,52,71,0.6) 0%, rgba(26,35,50,0.6) 100%); 
+                        border: 1px solid rgba(100,181,246,0.2); 
+                        border-radius: 12px; 
+                        padding: 20px; 
+                        margin-bottom: 20px;">
+                
+                <h3 style="color: #81c7f7; margin-top: 0; margin-bottom: 15px;">Badge Preview</h3>
+                <div style="text-align: center; padding: 20px; background: rgba(15,20,25,0.8); border-radius: 8px; margin-bottom: 20px;">
+                    <img src="https://img.shields.io/badge/Audited_by-Hound-{hex_color}?style=flat-square&logo=security&logoColor=white" 
+                         alt="Hound Security Audit" 
+                         style="max-width: 100%; height: auto;" />
+                </div>
+                
+                <h3 style="color: #81c7f7; margin-bottom: 15px;">Markdown (for README.md)</h3>
+                <div style="position: relative; margin-bottom: 20px;">
+                    <pre style="background: #1a1a2e; 
+                                padding: 15px; 
+                                border-radius: 8px; 
+                                overflow-x: auto; 
+                                border: 1px solid #16213e;
+                                margin: 0;
+                                color: #e8ecf1;
+                                font-family: 'Courier New', monospace;
+                                font-size: 13px;"><code id="markdown-badge">{self._escape_html(markdown_badge)}</code></pre>
+                    <button onclick="(async()=>{{try{{await navigator.clipboard.writeText(document.getElementById('markdown-badge').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',2000);}}catch(e){{}}}})()" 
+                            style="position: absolute; 
+                                   top: 10px; 
+                                   right: 10px; 
+                                   background: rgba(100,181,246,0.12); 
+                                   border: 1px solid rgba(100,181,246,0.35); 
+                                   color: #b3d4fc; 
+                                   font-size: 11px; 
+                                   padding: 6px 12px; 
+                                   border-radius: 6px; 
+                                   cursor: pointer;">
+                        Copy
+                    </button>
+                </div>
+                
+                <h3 style="color: #81c7f7; margin-bottom: 15px;">HTML</h3>
+                <div style="position: relative;">
+                    <pre style="background: #1a1a2e; 
+                                padding: 15px; 
+                                border-radius: 8px; 
+                                overflow-x: auto; 
+                                border: 1px solid #16213e;
+                                margin: 0;
+                                color: #e8ecf1;
+                                font-family: 'Courier New', monospace;
+                                font-size: 13px;"><code id="html-badge">{self._escape_html(html_badge)}</code></pre>
+                    <button onclick="(async()=>{{try{{await navigator.clipboard.writeText(document.getElementById('html-badge').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',2000);}}catch(e){{}}}})()" 
+                            style="position: absolute; 
+                                   top: 10px; 
+                                   right: 10px; 
+                                   background: rgba(100,181,246,0.12); 
+                                   border: 1px solid rgba(100,181,246,0.35); 
+                                   color: #b3d4fc; 
+                                   font-size: 11px; 
+                                   padding: 6px 12px; 
+                                   border-radius: 6px; 
+                                   cursor: pointer;">
+                        Copy
+                    </button>
+                </div>
+            </div>
+            
+            <p style="color: #8892b0; font-size: 14px; font-style: italic;">
+                Note: Make sure to update the href link to point to the actual location of your security report.
+            </p>
+        </div>
+        """
+    
     def _format_findings_html(self, findings: list[dict]) -> str:
         """Format findings into HTML with code samples."""
         if not findings:
@@ -2137,6 +2251,20 @@ External dependencies are limited and clearly defined."""
                 </div>
                 '''
             
+            # Add remediation advice if available
+            remediation_html = ''
+            if finding.get('remediation'):
+                remediation_html = f'''
+                <div class="remediation-section" style="margin-top: 1.5em; padding: 15px; background: rgba(40, 167, 69, 0.1); border-left: 3px solid #28a745; border-radius: 8px;">
+                    <h4 style="color: #28a745; margin-top: 0; margin-bottom: 10px; font-size: 16px;">
+                        <span style="margin-right: 8px;">✓</span>Remediation
+                    </h4>
+                    <div style="color: #c8d0db; line-height: 1.7;">
+                        {self._format_paragraphs_html(finding['remediation'])}
+                    </div>
+                </div>
+                '''
+            
             # Check if there's a PoC for this hypothesis
             poc_html = ''
             hypothesis_id = finding.get('id', '')
@@ -2154,6 +2282,7 @@ External dependencies are limited and clearly defined."""
                 <p><strong>Affected Components:</strong> {finding.get('affected_description', self._describe_affected_components(finding.get('affected', [])))}</p>
                 {qa_comment_html}
                 {code_html}
+                {remediation_html}
                 {poc_html}
             </div>
             ''')
@@ -2256,6 +2385,74 @@ Rules for affected components:
         except Exception as e:
             if self.debug:
                 print(f"[!] Failed to batch generate descriptions: {e}")
+            return {}
+    
+    def _batch_generate_remediation_advice(self, findings: list[dict]) -> dict[int, str]:
+        """Batch generate remediation advice for vulnerabilities using LLM."""
+        if not findings:
+            return {}
+        
+        # Build a single prompt for all vulnerabilities
+        vulnerabilities_json = []
+        for i, finding in enumerate(findings):
+            vulnerabilities_json.append({
+                "index": i,
+                "title": finding.get('title', 'Unknown'),
+                "type": finding.get('type', 'unknown'),
+                "severity": finding.get('severity', 'medium'),
+                "description": finding.get('professional_description') or finding.get('description', ''),
+                "affected_components": finding.get('affected_description', '')
+            })
+        
+        prompt = f"""You are a senior security auditor writing remediation advice for vulnerabilities in a professional audit report.
+
+Vulnerabilities:
+{json.dumps(vulnerabilities_json, ensure_ascii=False, indent=2)}
+
+For EACH vulnerability, provide clear, actionable remediation advice that includes:
+1. Specific steps to fix the vulnerability
+2. Code-level recommendations or patterns to implement
+3. Best practices to prevent similar issues
+
+Return a JSON object with this structure:
+{{
+  "0": "Remediation advice for vulnerability 0...",
+  "1": "Remediation advice for vulnerability 1...",
+  ...
+}}
+
+Rules:
+- Be specific and actionable
+- Focus on fixing the root cause, not just symptoms
+- Mention specific functions/contracts that need changes when applicable
+- Keep advice concise (2-4 sentences or bullet points)
+- Use professional, technical language
+- Start with imperative verbs (e.g., "Implement", "Add", "Modify", "Ensure")
+"""
+
+        try:
+            response = self.llm.raw(
+                system="You are a security expert providing remediation advice. Respond only with valid JSON.",
+                user=prompt
+            )
+            from utils.json_utils import extract_json_object
+            results = extract_json_object(response)
+            
+            if isinstance(results, dict):
+                # Convert string keys to int and return
+                processed = {}
+                for k, v in results.items():
+                    try:
+                        idx = int(k)
+                        processed[idx] = str(v).strip()
+                    except (ValueError, TypeError):
+                        continue
+                return processed
+            else:
+                return {}
+        except Exception as e:
+            if self.debug:
+                print(f"[!] Failed to batch generate remediation advice: {e}")
             return {}
     
     def _generate_vulnerability_description(self, finding: dict) -> str:
