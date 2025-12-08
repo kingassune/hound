@@ -12,6 +12,7 @@
   <a href="https://openai.com"><img src="https://img.shields.io/badge/OpenAI-Compatible-74aa9c" alt="OpenAI"/></a>
   <a href="https://ai.google.dev/"><img src="https://img.shields.io/badge/Gemini-Compatible-4285F4" alt="Gemini"/></a>
   <a href="https://anthropic.com"><img src="https://img.shields.io/badge/Anthropic-Compatible-6B46C1" alt="Anthropic"/></a>
+  <a href="https://www.deepseek.com"><img src="https://img.shields.io/badge/DeepSeek-Compatible-00ADD8" alt="DeepSeek"/></a>
 </p>
 
 <p align="center">
@@ -53,13 +54,31 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Set up your OpenAI API key and optional base URL:
+Set up your API keys for the LLM provider you want to use:
+
+**Using DeepSeek (recommended for cost efficiency):**
+
+```bash
+export DEEPSEEK_API_KEY=your_key_here
+# Optional: override the base URL (defaults to https://api.deepseek.com)
+export DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+**Using OpenAI:**
 
 ```bash
 export OPENAI_API_KEY=your_key_here
 # Optional: override the base URL (defaults to https://api.openai.com)
 export OPENAI_BASE_URL=https://api.openai.com
 ```
+
+**Using Anthropic:**
+
+```bash
+export ANTHROPIC_API_KEY=your_key_here
+```
+
+For detailed DeepSeek setup and cost comparison, see [examples/deepseek_example.md](examples/deepseek_example.md).
 
 Using Gemini via Vertex AI (optional):
 

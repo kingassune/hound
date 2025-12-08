@@ -24,6 +24,11 @@ anthropic:
 xai:
   api_key_env: XAI_API_KEY
 
+deepseek:
+  api_key_env: DEEPSEEK_API_KEY
+  # Base URL for DeepSeek API (alternatively set DEEPSEEK_BASE_URL)
+  base_url: https://api.deepseek.com
+
 # Model configuration with context limits
 models:
   # Graph building model - needs large context
@@ -40,17 +45,21 @@ models:
     thinking_budget: -1
     
   # Scout/agent model for exploration
+  # Using DeepSeek for ~90% cost savings vs GPT-4
+  # Alternative: provider: openai, model: gpt-5-mini
   scout:
-    provider: openai
-    model: gpt-5-mini
+    provider: deepseek
+    model: deepseek-chat
     max_context: 256000
     # reasoning_effort: low
   
   # Strategic thinking model
   # For planning and reasoning about security issues
+  # Using DeepSeek for ~90% cost savings vs GPT-4
+  # Alternative: provider: openai, model: gpt-5
   strategist:
-    provider: openai
-    model: gpt-5
+    provider: deepseek
+    model: deepseek-chat
     max_context: 256000
     plan_reasoning_effort: medium
     hypothesize_reasoning_effort: high
