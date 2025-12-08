@@ -41,10 +41,24 @@ class TestReportGenerator(unittest.TestCase):
         with patch('analysis.report_generator.UnifiedLLMClient') as MockLLM:
             mock_llm = MagicMock()
             MockLLM.return_value = mock_llm
-            mock_llm.raw.return_value = (
-                '{"executive_summary": "Executive Summary Here", '
-                '"system_overview": "System Overview Here"}'
-            )
+            
+            # Setup mock to return different responses for different calls
+            def mock_raw_side_effect(*args, **kwargs):
+                user_prompt = kwargs.get('user', '')
+                system_prompt = kwargs.get('system', '')
+                # Match based on system prompt for more reliable differentiation
+                if 'senior security auditor' in system_prompt and 'PROJECT_NAME' in user_prompt:
+                    return ('{"application_name": "Test App", '
+                            '"executive_summary": "Executive Summary Here", '
+                            '"system_overview": "System Overview Here"}')
+                elif 'Vulnerabilities to describe' in user_prompt:
+                    return '{"0": {"description": "Professional description", "affected_components": "Test component"}}'
+                elif 'remediation advice' in user_prompt.lower():
+                    return '{"0": "Add input validation and implement proper access controls."}'
+                else:
+                    return '{}'
+            
+            mock_llm.raw.side_effect = mock_raw_side_effect
 
             rg = ReportGenerator(self.tmp, cfg)
             html = rg.generate(project_name='Proj', project_source='repo', title='Report', auditors=['A'])
@@ -52,3 +66,59 @@ class TestReportGenerator(unittest.TestCase):
             self.assertIn('Proj', html)
             self.assertIn('Findings', html)
             self.assertIn('System Overview', html)
+            # Verify remediation advice is included
+            self.assertIn('Remediation', html)
+            # Verify badge section is included
+            self.assertIn('README Badge', html)
+            self.assertIn('Audited by Hound', html)
+    
+    def test_remediation_advice_generation(self):
+        """Test that remediation advice is generated for findings."""
+        cfg = {'models': {'reporting': {'provider': 'openai', 'model': 'x'}}}
+        with patch('analysis.report_generator.UnifiedLLMClient') as MockLLM:
+            mock_llm = MagicMock()
+            MockLLM.return_value = mock_llm
+            
+            # Mock the remediation advice generation
+            mock_llm.raw.return_value = '{"0": "Implement proper input validation and add access control checks."}'
+            
+            rg = ReportGenerator(self.tmp, cfg)
+            findings = [
+                {
+                    'title': 'Access Control Issue',
+                    'type': 'access_control',
+                    'severity': 'high',
+                    'description': 'Missing access control',
+                    'professional_description': 'The function lacks proper access control.',
+                    'affected_description': 'the main contract'
+                }
+            ]
+            
+            result = rg._batch_generate_remediation_advice(findings)
+            
+            # Verify LLM was called
+            self.assertTrue(mock_llm.raw.called)
+            # Verify result contains remediation advice
+            self.assertIn(0, result)
+            self.assertIn('validation', result[0].lower())
+    
+    def test_badge_generation(self):
+        """Test that badge HTML is generated correctly."""
+        cfg = {'models': {'reporting': {'provider': 'openai', 'model': 'x'}}}
+        with patch('analysis.report_generator.UnifiedLLMClient') as MockLLM:
+            mock_llm = MagicMock()
+            MockLLM.return_value = mock_llm
+            
+            rg = ReportGenerator(self.tmp, cfg)
+            
+            # Test with no findings
+            badge_html = rg._generate_badge_section_html('TestProject', 'January 1, 2025', 0)
+            self.assertIn('README Badge', badge_html)
+            self.assertIn('28a745', badge_html)  # Green color for no issues
+            self.assertIn('Audited_by-Hound', badge_html)  # Check for badge URL format
+            self.assertIn('Hound Security Audit', badge_html)  # Check for alt text
+            self.assertIn('Copy', badge_html)
+            
+            # Test with findings
+            badge_html_with_findings = rg._generate_badge_section_html('TestProject', 'January 1, 2025', 5)
+            self.assertIn('dc3545', badge_html_with_findings)  # Red color for multiple issues

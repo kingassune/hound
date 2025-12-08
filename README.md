@@ -271,8 +271,51 @@ Hound supports two distinct audit modes:
 - **--plan-n**: Number of investigations per planning batch
 - **--session**: Resume a specific session (continues coverage/planning)
 - **--debug**: Save all LLM interactions to `.hound_debug/`
+- **--headless**: Run in headless mode for automated services (see below)
 
 Normally, you want to run sweep mode first followed by intuition mode. The quality and duration depend heavily on the models used. Faster models provide quick results but may miss subtle issues, while advanced reasoning models find deeper vulnerabilities but require more time.
+
+**Headless Mode for Automated Services:**
+
+For CI/CD pipelines and automated monthly audits, use the `--headless` flag to run audits without human interaction:
+
+```bash
+# Run audit in headless mode (fire-and-forget)
+./hound.py agent audit myaudit --headless --mode sweep --time-limit 60
+
+# Headless audit with custom settings
+./hound.py agent audit myaudit --headless --mode intuition --time-limit 120 --plan-n 10
+```
+
+Headless mode features:
+- **No UI/Telemetry**: Disables the Chatbot UI and telemetry server
+- **Auto-approval**: All investigation plans are automatically approved
+- **Audit Logging**: Creates `audit_{project}_{timestamp}.log` in the current directory with:
+  - Agent decisions and reasoning for each iteration
+  - Investigation lifecycle events (start/completion)
+  - Hypotheses formed during analysis
+  - Final summary with coverage statistics
+- **Exit Codes**: Returns non-zero exit codes for CI integration:
+  - `0`: Successful completion
+  - `1`: Critical failure occurred
+  - `130`: Interrupted (SIGINT/Ctrl+C)
+
+Example CI workflow:
+```bash
+#!/bin/bash
+# Run headless audit and capture exit code
+./hound.py agent audit myproject --headless --mode sweep --time-limit 30
+AUDIT_EXIT=$?
+
+if [ $AUDIT_EXIT -eq 0 ]; then
+  echo "Audit completed successfully"
+  # Generate report
+  ./hound.py report myproject --output audit_report.html
+else
+  echo "Audit failed with exit code $AUDIT_EXIT"
+  exit $AUDIT_EXIT
+fi
+```
 
 ### Step 4: Monitor Progress
 
