@@ -312,7 +312,8 @@ def agent_audit(
     session_private_hypotheses: bool = typer.Option(False, "--session-private-hypotheses", help="Keep new hypotheses private to this session"),
     telemetry: bool = typer.Option(False, "--telemetry", help="Expose local telemetry SSE/control and register instance"),
     strategist_two_pass: bool = typer.Option(False, "--strategist-two-pass", help="Enable strategist two-pass self-critique to reduce false positives"),
-    mission: str = typer.Option(None, "--mission", help="Overarching mission for the audit (always visible to the Strategist)")
+    mission: str = typer.Option(None, "--mission", help="Overarching mission for the audit (always visible to the Strategist)"),
+    headless: bool = typer.Option(False, "--headless", help="Run in headless mode for automated service (no UI/Chatbot, auto-approve plans, logs to audit.log)")
 ):
     """Run autonomous security audit (plans investigations automatically)."""
 
@@ -402,7 +403,8 @@ def agent_audit(
         'session_private_hypotheses': session_private_hypotheses,
         'telemetry': telemetry,
         'strategist_two_pass': strategist_two_pass,
-        'mission': mission
+        'mission': mission,
+        'headless': headless
     })
 
 
