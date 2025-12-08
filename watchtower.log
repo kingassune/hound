@@ -1,8 +1,0 @@
-2025-12-08 12:31:23,224 - INFO - Initialized Watchtower Scanner
-2025-12-08 12:31:23,224 - INFO -   CSV: /home/runner/work/hound/hound/examples/test_watchtower_integration.csv
-2025-12-08 12:31:23,224 - INFO -   Output: /tmp/watchtower_test_output
-2025-12-08 12:31:23,224 - INFO -   Filter: ['NEW', 'UPDATED']
-2025-12-08 12:31:23,224 - INFO -   Hound: /home/runner/work/hound/hound/hound.py
-2025-12-08 12:31:23,224 - INFO - CSV headers: ['org', 'repo', 'status', 'url']
-2025-12-08 12:31:23,224 - INFO - Row 2: Added octocat/Hello-World (status=NEW)
-2025-12-08 12:31:23,224 - INFO - Parsed 1 repositories from CSV

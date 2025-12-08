@@ -14,13 +14,14 @@ Example:
 
 import argparse
 import csv
+import hashlib
 import json
 import logging
 import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -40,7 +41,7 @@ class WatchtowerScanner:
     """Batch scanner for processing repositories from Contract Target Radar."""
     
     def __init__(self, csv_path: str, output_dir: str = "./watchtower_output", 
-                 filter_status: Optional[List[str]] = None):
+                 filter_status: Optional[List[str]] = None, hound_script: Optional[str] = None):
         """
         Initialize the Watchtower scanner.
         
@@ -48,12 +49,20 @@ class WatchtowerScanner:
             csv_path: Path to the Radar CSV file
             output_dir: Directory to store audit results
             filter_status: List of status values to filter (e.g., ['NEW', 'UPDATED'])
+            hound_script: Path to hound.py script (defaults to ../hound.py relative to this script)
         """
         self.csv_path = Path(csv_path)
         self.output_dir = Path(output_dir)
         self.filter_status = [s.upper() for s in filter_status] if filter_status else ['NEW', 'UPDATED']
         self.temp_workspace = Path("./watchtower_temp")
-        self.hound_script = Path(__file__).parent.parent / "hound.py"
+        
+        # Allow override via parameter or environment variable
+        if hound_script:
+            self.hound_script = Path(hound_script)
+        elif os.environ.get('HOUND_SCRIPT'):
+            self.hound_script = Path(os.environ['HOUND_SCRIPT'])
+        else:
+            self.hound_script = Path(__file__).parent.parent / "hound.py"
         
         # Ensure output directories exist
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -299,13 +308,15 @@ class WatchtowerScanner:
         logger.info(f"Processing: {org}/{repo}")
         logger.info(f"{'='*80}")
         
-        # Create unique project name
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        project_name = f"{org}_{repo}_{timestamp}".replace('/', '_').replace('-', '_')
+        # Create unique project name with hash to avoid conflicts
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        # Use hash of URL to ensure uniqueness even if org/repo names are similar
+        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        project_name = f"{org}_{repo}_{timestamp}_{url_hash}".replace('/', '_').replace('-', '_')
         
         # Setup paths
-        clone_dir = self.temp_workspace / f"{org}_{repo}"
-        output_subdir = self.output_dir / org / repo / datetime.now().strftime("%Y-%m-%d")
+        clone_dir = self.temp_workspace / f"{org}_{repo}_{url_hash}"
+        output_subdir = self.output_dir / org / repo / datetime.now(timezone.utc).strftime("%Y-%m-%d")
         output_subdir.mkdir(parents=True, exist_ok=True)
         report_path = output_subdir / "audit_report.html"
         
@@ -434,6 +445,12 @@ Examples:
         help='Enable verbose logging'
     )
     
+    parser.add_argument(
+        '--hound-script',
+        default=None,
+        help='Path to hound.py script (default: auto-detect from script location)'
+    )
+    
     args = parser.parse_args()
     
     # Set log level
@@ -448,7 +465,8 @@ Examples:
         scanner = WatchtowerScanner(
             csv_path=args.csv_file,
             output_dir=args.output_dir,
-            filter_status=filter_list
+            filter_status=filter_list,
+            hound_script=args.hound_script
         )
         results = scanner.run()
         
