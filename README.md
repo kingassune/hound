@@ -19,6 +19,7 @@
   <sub>
     <a href="#overview"><b>Overview</b></a>
     • <a href="#configuration"><b>Configuration</b></a>
+    • <a href="#surface-scan"><b>Surface Scan</b></a>
     • <a href="#complete-audit-workflow"><b>Workflow</b></a>
     • <a href="#chatbot-telemetry-ui"><b>Chatbot</b></a>
     • <a href="#contributing"><b>Contributing</b></a>
@@ -133,6 +134,57 @@ Notes:
 <!-- Quick Start and Repository Layout removed to avoid duplication; see Complete Audit Workflow below. -->
 
 **Note:** Audit quality scales with time and model capability. Use longer runs and advanced models for more complete results.
+
+## Surface Scan
+
+Surface Scan provides fast, lightweight security scanning for preliminary assessment of smart contract repositories. It's designed for lead generation and quick triage - ideal for scanning hundreds of repos to identify potential vulnerabilities before committing to a full audit.
+
+**Key Features:**
+- **Fast**: ~2 seconds per repo (static analysis only)
+- **Cost-effective**: ~$0.05 per repo with optional LLM verification
+- **Scalable**: Batch processing with checkpointing for 1000+ repos
+- **Multiple output formats**: JSON, HTML, Markdown, CSV
+
+### Quick Start
+
+```bash
+# Scan a GitHub repository
+./hound.py scan https://github.com/uniswap/v4-core
+
+# Scan a local directory with HTML report
+./hound.py scan /path/to/contracts --format html --output report.html
+
+# Batch scan from CSV file
+./hound.py scan --batch repos.csv --output results.csv
+
+# Fast scan without LLM verification (faster, more false positives)
+./hound.py scan /path/to/contracts --no-llm
+```
+
+### What it Detects
+
+Surface Scan identifies common vulnerability patterns in Solidity/Vyper contracts:
+- **Critical**: Unprotected selfdestruct, unprotected delegatecall
+- **High**: Reentrancy, tx.origin auth, unchecked calls, integer overflows
+- **Medium**: Missing access control, frontrunning risks, oracle dependencies
+- **Low**: Deprecated patterns, missing visibility specifiers
+
+### Use Cases
+
+**Good for:**
+- Initial security assessment of new projects
+- Lead qualification and triage
+- Identifying unaudited repositories
+- Code quality signals (missing tests, old Solidity versions)
+
+**Not suitable for:**
+- Replacing comprehensive security audits
+- Production-critical code review
+- Finding complex logic bugs or economic attacks
+
+**Important:** Surface scan results have a high false positive rate without LLM verification. Always use `--budget 5` (default) when sharing results externally, and never send surface scan reports to battle-tested protocols without manual review.
+
+For detailed documentation, usage examples, and architecture details, see [docs/SURFACE_SCAN.md](docs/SURFACE_SCAN.md).
 
 ## Complete Audit Workflow
 
