@@ -18,3 +18,8 @@ poetry.lock
 
 # IDE
 .vscode/
+
+# Watchtower
+watchtower.log
+watchtower_output/
+watchtower_temp/

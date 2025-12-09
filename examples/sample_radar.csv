@@ -1,0 +1,6 @@
+org,repo,status,url
+ethereum,solidity,NEW,https://github.com/ethereum/solidity
+OpenZeppelin,openzeppelin-contracts,UPDATED,https://github.com/OpenZeppelin/openzeppelin-contracts
+foundry-rs,foundry,NEW,https://github.com/foundry-rs/foundry
+aave,aave-v3-core,UPDATED,https://github.com/aave/aave-v3-core
+Uniswap,v3-core,NEW,https://github.com/Uniswap/v3-core
