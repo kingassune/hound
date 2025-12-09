@@ -695,6 +695,21 @@ Monitor audit progress and completeness:
 # - Percentage completion
 ```
 
+### GitHub Webhook Listener
+
+Automate security scans for monthly subscribers with GitHub webhooks:
+
+```bash
+# Quick start
+python server.py
+
+# See documentation
+cat QUICKSTART_WEBHOOK.md
+cat README_WEBHOOK.md
+```
+
+The webhook server automatically triggers Hound scans when subscribers push code, and emails HTML reports to registered users. Perfect for continuous security monitoring.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
