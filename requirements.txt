@@ -28,3 +28,7 @@ rich>=13.0.0
 
 # File Locking
 portalocker>=2.7.0
+
+# Webhook Server
+flask>=2.3.0
+requests>=2.31.0

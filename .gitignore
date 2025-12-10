@@ -23,3 +23,9 @@ poetry.lock
 watchtower.log
 watchtower_output/
 watchtower_temp/
+
+# Webhook Server
+webhook_server.log
+webhook_scans/
+subscribers.json
+webhook_config.json

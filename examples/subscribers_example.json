@@ -1,0 +1,16 @@
+{
+  "subscribers": {
+    "https://github.com/example-org/example-repo": {
+      "email": "security@example-org.com",
+      "webhook_secret": "your-github-webhook-secret-here",
+      "added_at": "2024-12-09T22:30:00.000000+00:00",
+      "scan_count": 0
+    },
+    "https://github.com/another-org/smart-contracts": {
+      "email": "admin@another-org.com",
+      "webhook_secret": "another-webhook-secret",
+      "added_at": "2024-12-09T22:30:00.000000+00:00",
+      "scan_count": 5
+    }
+  }
+}
